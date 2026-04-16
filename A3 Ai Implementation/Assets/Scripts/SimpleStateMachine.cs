@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 
 public class SimpleStateMachine : MonoBehaviour
 {
-    enum State { Idle, Patrol, Chase, Search }
+    enum State { Idle, Patrol, Chase, Search, SoundCheck }
 
     [Header("Scene References")]
     public Transform character;
@@ -38,10 +38,12 @@ public class SimpleStateMachine : MonoBehaviour
     float idleTime;
     float searchTime;
     bool canSeePlayer;
+    bool soundHeard;
 
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
+        soundHeard = false;
     }
 
     void Start()
@@ -66,6 +68,10 @@ public class SimpleStateMachine : MonoBehaviour
             case State.Search:
                 Search();
                 break;
+            case State.SoundCheck:
+                SoundCheck();
+                break;
+
         }
 
         /*
@@ -100,6 +106,12 @@ public class SimpleStateMachine : MonoBehaviour
             Debug.Log(state);
             state = State.Patrol;
         }
+
+        if (soundHeard)
+        {
+            state = State.SoundCheck;
+        }
+
     }
 
     void Patrol()
@@ -130,6 +142,12 @@ public class SimpleStateMachine : MonoBehaviour
             Debug.Log(state);
             state = State.Chase;
         }
+
+        if (soundHeard)
+        {
+            state = State.SoundCheck;
+        }
+
     }
 
     void Chase()
@@ -165,6 +183,16 @@ public class SimpleStateMachine : MonoBehaviour
         {
             state = State.Patrol;
             Debug.Log(state);
+        }
+    }
+
+    void SoundCheck()
+    {
+        canSeePlayer = IsInViewCone();
+        if (canSeePlayer)
+        {
+            Debug.Log(state);
+            state = State.Chase;
         }
     }
 
@@ -221,4 +249,19 @@ public class SimpleStateMachine : MonoBehaviour
             Handles.DrawSolidArc(transform.position, Vector3.up, forward, -viewAngle / 2f, viewRadius);
         }
     }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.CompareTag("SoundEvent"))
+        {
+            soundHeard = true;
+            Invoke("NotHeard", 5f);
+        }
+    }
+
+    void NotHeard()
+    {
+        soundHeard = false;
+    }
+
 }
