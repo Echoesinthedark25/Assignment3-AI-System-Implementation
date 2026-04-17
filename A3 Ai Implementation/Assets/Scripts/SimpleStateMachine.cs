@@ -7,6 +7,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
+using static UnityEngine.GraphicsBuffer;
 
 public class SimpleStateMachine : MonoBehaviour
 {
@@ -16,6 +17,7 @@ public class SimpleStateMachine : MonoBehaviour
     public Transform character;
     public Transform[] patrolWaypoints;
     public TextMeshProUGUI stateText;
+    public SimpleStateMachine[] npcs;
 
     [Header("Config")]
     public float idleTimeThreshold = 2.0f;
@@ -26,19 +28,29 @@ public class SimpleStateMachine : MonoBehaviour
     public float normalSpeed = 3.5f;
     public float chaseSpeed = 5.0f;
 
+    public float soundCheckThreshold = 2f;
+    public float soundCheckDistance = 1.5f;
+
     [Header("Vision Settings")]
     public float viewRadius = 10f;
     [Range(0, 360)]
     public float viewAngle = 60f;
 
+
     State state;
     NavMeshAgent agent;
     int patrolIndex = 0;
 
+    public Vector3 soundTarget;
+
     float idleTime;
     float searchTime;
     bool canSeePlayer;
-    bool soundHeard;
+
+    float soundCheckTime = 0f;
+    
+    public bool soundHeard;
+    Vector3 soundRadius = Vector3.zero;
 
     private void Awake()
     {
@@ -184,10 +196,36 @@ public class SimpleStateMachine : MonoBehaviour
             state = State.Patrol;
             Debug.Log(state);
         }
+
+        if (soundHeard)
+        {
+            state = State.SoundCheck;
+            soundCheckTime = Time.time;
+        }
     }
 
     void SoundCheck()
     {
+        Debug.Log(state);
+        
+        agent.SetDestination(soundRadius);
+
+        float distance = Vector3.Distance(transform.position, soundRadius);
+        if (distance <= soundCheckDistance)
+        {
+            float timeElapsed = Time.time - soundCheckTime;
+            if (timeElapsed >= soundCheckTime)
+            {
+                state = State.Patrol;
+            }
+            else
+            {
+                soundCheckTime = Time.time;
+            }
+        }
+
+        transform.position = Vector3.MoveTowards(transform.position, soundTarget, 0.01f);
+
         canSeePlayer = IsInViewCone();
         if (canSeePlayer)
         {
@@ -255,8 +293,14 @@ public class SimpleStateMachine : MonoBehaviour
         if (other.gameObject.CompareTag("SoundEvent"))
         {
             soundHeard = true;
+            Debug.Log("soundHeard");
             Invoke("NotHeard", 5f);
         }
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+      
     }
 
     void NotHeard()

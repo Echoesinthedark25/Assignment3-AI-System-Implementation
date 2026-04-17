@@ -6,6 +6,7 @@ public class SoundTrigger : MonoBehaviour
 {
     public Collider soundTrigger;
     public GameObject soundRadius;
+    
 
 
     private void OnTriggerEnter(Collider other)
@@ -26,6 +27,11 @@ public class SoundTrigger : MonoBehaviour
     private void DeactivateRadius()
     {
         soundRadius.SetActive(false);
+    }
+
+    public void Update()
+    {
+
     }
 
 
