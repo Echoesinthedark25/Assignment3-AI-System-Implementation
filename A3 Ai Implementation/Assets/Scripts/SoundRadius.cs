@@ -18,7 +18,7 @@ public class SoundRadius : MonoBehaviour
     {
         if (npc.soundHeard)
         {
-            npc.soundTarget = new Vector3(transform.position.x, npc.transform.position.y, transform.position.z);
+            npc.alertRadius = this;
         }
     }
 }

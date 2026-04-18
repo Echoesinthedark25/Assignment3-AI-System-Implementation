@@ -21,6 +21,7 @@ public class Character : MonoBehaviour
     public float throwForce = 1.0f;
 
     public InputActionReference moveInput;
+    public SoundRadius playerSpotted;
 
     CharacterController controller;
     PlayerInput playerInput;

@@ -11,25 +11,28 @@ using static UnityEngine.GraphicsBuffer;
 
 public class SimpleStateMachine : MonoBehaviour
 {
-    enum State { Idle, Patrol, Chase, Search, SoundCheck }
+    enum State { GoHome, Observe, Chase, SoundInvestigate }
 
     [Header("Scene References")]
     public Transform character;
-    public Transform[] patrolWaypoints;
+   
     public TextMeshProUGUI stateText;
     public SimpleStateMachine[] npcs;
+    public SoundTrigger soundAlert;
+    public SoundRadius alertRadius;
+    private Vector3 homePosition;
 
     [Header("Config")]
-    public float idleTimeThreshold = 2.0f;
     public float waypointThreshold = 0.6f;
     public float rotationSpeed = 1f;
-    public float searchTimeThreshold = 5.0f;
     public float playerDistThreshold = 2.0f;
     public float normalSpeed = 3.5f;
     public float chaseSpeed = 5.0f;
 
     public float soundCheckThreshold = 2f;
     public float soundCheckDistance = 1.5f;
+
+    public float observeRotation = 0.1f;
 
     [Header("Vision Settings")]
     public float viewRadius = 10f;
@@ -39,18 +42,17 @@ public class SimpleStateMachine : MonoBehaviour
 
     State state;
     NavMeshAgent agent;
-    int patrolIndex = 0;
+   
 
     public Vector3 soundTarget;
 
-    float idleTime;
-    float searchTime;
+    
+    
     bool canSeePlayer;
 
-    float soundCheckTime = 0f;
     
     public bool soundHeard;
-    Vector3 soundRadius = Vector3.zero;
+    
 
     private void Awake()
     {
@@ -60,28 +62,26 @@ public class SimpleStateMachine : MonoBehaviour
 
     void Start()
     {
-        state = State.Patrol;
+        homePosition = transform.position;
+        
+        state = State.Observe;
     }
 
     void Update()
     {
         switch (state)
         {
-            case State.Idle:
-                Idle();
+            case State.GoHome:
+                GoHome();
                 break;
-
-            case State.Patrol:
-                Patrol();
+            case State.Observe:
+                Observe();
                 break;
             case State.Chase:
                 Chase();
                 break;
-            case State.Search:
-                Search();
-                break;
-            case State.SoundCheck:
-                SoundCheck();
+            case State.SoundInvestigate:
+                SoundInvestigate();
                 break;
 
         }
@@ -105,59 +105,43 @@ public class SimpleStateMachine : MonoBehaviour
         if (distToPlayer < playerDistThreshold && canSeePlayer) SceneManager.LoadScene("END");
     }
 
-    void Idle()
+    
+    void GoHome()
     {
-        agent.speed = normalSpeed;
-
-        // during idle, can never see player
-        canSeePlayer = false;
-
-        float idleTimeElapsed = Time.time - idleTime;
-        if (idleTimeElapsed >= idleTimeThreshold)
+        agent.SetDestination(homePosition);
+        canSeePlayer = IsInViewCone();
+        if (canSeePlayer)
         {
+
+
             Debug.Log(state);
-            state = State.Patrol;
+            state = State.Chase;
         }
 
-        if (soundHeard)
+        float distance = Vector3.Distance(homePosition, transform.position);
+        if (distance < playerDistThreshold)
         {
-            state = State.SoundCheck;
+            state = State.Observe;
         }
 
     }
 
-    void Patrol()
+    void Observe()
     {
-        agent.speed = normalSpeed;
-
-        Transform patrolTransform = patrolWaypoints[patrolIndex];
-        agent.SetDestination(patrolTransform.position);
-
-        Vector3 positionXZ = transform.position;
-        positionXZ.y = 0.0f;
-
-        Vector3 patrolPositionXZ = patrolTransform.position;
-        patrolPositionXZ.y = 0.0f;
-
-        float distance = Vector2.Distance(positionXZ, patrolPositionXZ);
-        if (distance < waypointThreshold)
-        {
-            IncreasePatrolIndex();
-            Debug.Log(state);
-            state = State.Idle;
-            idleTime = Time.time;
-        }
+        transform.Rotate(Vector3.up*observeRotation);
 
         canSeePlayer = IsInViewCone();
         if (canSeePlayer)
         {
+            
+            
             Debug.Log(state);
             state = State.Chase;
         }
 
         if (soundHeard)
         {
-            state = State.SoundCheck;
+            state = State.SoundInvestigate;
         }
 
     }
@@ -170,69 +154,43 @@ public class SimpleStateMachine : MonoBehaviour
         canSeePlayer = IsInViewCone();
         if (!canSeePlayer)
         {
-            state = State.Search;
-            Debug.Log(state);
-            searchTime = Time.time;
+            state = State.GoHome;
         }
     }
 
-    void Search()
-    {
-        agent.speed = chaseSpeed;
+    
 
-        float searchTimeElapsed = Time.time - searchTime;
-
-        agent.SetDestination(transform.forward + transform.right);
-        canSeePlayer = IsInViewCone();
-
-        if (canSeePlayer)
-        {
-            state = State.Chase;
-            Debug.Log(state);
-        }
-
-        if (searchTimeElapsed >= searchTimeThreshold)
-        {
-            state = State.Patrol;
-            Debug.Log(state);
-        }
-
-        if (soundHeard)
-        {
-            state = State.SoundCheck;
-            soundCheckTime = Time.time;
-        }
-    }
-
-    void SoundCheck()
+    void SoundInvestigate()
     {
         Debug.Log(state);
         
-        agent.SetDestination(soundRadius);
+        agent.SetDestination(alertRadius.transform.position);
 
-        float distance = Vector3.Distance(transform.position, soundRadius);
+        float distance = Vector3.Distance(transform.position, alertRadius.transform.position);
+        Debug.Log(distance);
         if (distance <= soundCheckDistance)
         {
-            float timeElapsed = Time.time - soundCheckTime;
-            if (timeElapsed >= soundCheckTime)
-            {
-                state = State.Patrol;
-            }
-            else
-            {
-                soundCheckTime = Time.time;
-            }
+            
+            
+            
+                
+                state = State.GoHome;
+                Debug.Log(state);
+            
+           
         }
 
-        transform.position = Vector3.MoveTowards(transform.position, soundTarget, 0.01f);
+        
 
         canSeePlayer = IsInViewCone();
         if (canSeePlayer)
         {
-            Debug.Log(state);
+           
             state = State.Chase;
+            Debug.Log(state);
         }
     }
+
 
 
     // --- HELPER FUNCTIONS ---
@@ -259,33 +217,22 @@ public class SimpleStateMachine : MonoBehaviour
         return false;
     }
 
-    void IncreasePatrolIndex()
-    {
-        patrolIndex++;
-        if (patrolIndex >= patrolWaypoints.Length) patrolIndex = 0;
-    }
+  
 
     // --- GIZMO DRAWING FOR DEBUG ---
 
     private void OnDrawGizmos()
     {
-        // draw the waypoints
-        Gizmos.color = Color.red;
-        foreach (Transform patrolTransform in patrolWaypoints)
-        {
-            Gizmos.DrawWireSphere(patrolTransform.position, 0.5f);
-        }
 
         // draw the view cone (2D version)
-        if (state != State.Idle)
-        {
+        
             Handles.color = new Color(0f, 1f, 1f, 0.25f);
             if (canSeePlayer) Handles.color = new Color(1f, 0f, 0f, 0.25f);
 
             Vector3 forward = transform.forward;
             Handles.DrawSolidArc(transform.position, Vector3.up, forward, viewAngle / 2f, viewRadius);
             Handles.DrawSolidArc(transform.position, Vector3.up, forward, -viewAngle / 2f, viewRadius);
-        }
+        
     }
 
     private void OnTriggerEnter(Collider other)
